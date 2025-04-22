@@ -1,56 +1,67 @@
 ﻿using Microsoft.AspNetCore.Components;
 using ShopPlatform.Shared.ModelsDTO;
 using ShopPlatform.Shared.Responses;
-using ShopPlatform.Shared.Results;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Threading.Tasks;
+using Blazored.LocalStorage;
 
 namespace ShopPlatform.Client.Pages.PagesOperations
 {
     public class UserListOperation : ComponentBase
     {
-        [Inject]
-        public HttpClient HttpClient { get; set; }
-        protected List<UserDTO> userList = new List<UserDTO>();
+        [Inject] public HttpClient HttpClient { get; set; }
+        [Inject] public ILocalStorageService LocalStorage { get; set; }
+        [Inject] public NavigationManager Navigation { get; set; }
 
         public ModalManager modal { get; set; }
-        protected async override Task OnInitializedAsync()
+        protected List<UserDTO> userList = new();
+
+        protected override async Task OnInitializedAsync()
         {
             await LoadList();
         }
+
         /// <summary>
-        /// APIden Verileri Getir
+        /// Kullanıcı listesini API'den getir.
         /// </summary>
-        /// <returns></returns>
         protected async Task LoadList()
         {
-            var serviceResponse = await HttpClient.GetFromJsonAsync<ShopPlatform.Shared.Responses.ServiceResponse<List<UserDTO>>>("api/User/Users");
-            if (serviceResponse.IsSuccess)
-                userList = serviceResponse.Value;
+            try
+            {
+                // Token'ı al ve header'a ekle
+                var token = await LocalStorage.GetItemAsStringAsync("token");
+                if (!string.IsNullOrEmpty(token))
+                {
+                    HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                }
+
+                var response = await HttpClient.GetFromJsonAsync<ServiceResponse<List<UserDTO>>>("api/User/Users");
+
+                if (response != null && response.IsSuccess)
+                {
+                    userList = response.Value;
+                }
+                else
+                {
+                    modal?.Show("Kullanıcılar getirilemedi.");
+                }
+            }
+            catch (Exception ex)
+            {
+                modal?.Show($"Veri çekme hatası: {ex.Message}");
+            }
         }
 
-        [Inject] NavigationManager navigation { get; set; }
-
-        /// <summary>
-        /// Ekleme Yap
-        /// </summary>
         protected void goToCreateUser()
         {
-            navigation.NavigateTo("/users/add");
+            Navigation.NavigateTo("/users/add");
         }
 
-        /// <summary>
-        /// Id Ye göre veriyi getir
-        /// </summary>
-        /// <param name="id"></param>
         protected void goToUpdatePage(Guid id)
         {
-            navigation.NavigateTo($"/users/edit/{id}");
+            Navigation.NavigateTo($"/users/edit/{id}");
         }
 
-        /// <summary>
-        /// Kullancıyı Sil.
-        /// </summary>
         protected async Task goToDeleteUser(Guid guid)
         {
             bool isConfirmed = await modal.ConfirmationAsync("Emin misin?", "Bu kullanıcıyı silmek istiyor musun?");
@@ -59,6 +70,12 @@ namespace ShopPlatform.Client.Pages.PagesOperations
 
             try
             {
+                var token = await LocalStorage.GetItemAsStringAsync("token");
+                if (!string.IsNullOrEmpty(token))
+                {
+                    HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                }
+
                 var response = await HttpClient.PostAsJsonAsync("api/User/Delete", guid);
                 if (response.IsSuccessStatusCode)
                 {
@@ -66,14 +83,13 @@ namespace ShopPlatform.Client.Pages.PagesOperations
                 }
                 else
                 {
-                    modal.Show("Silme işlemi başarısız.");
+                    modal?.Show("Silme işlemi başarısız.");
                 }
             }
             catch (Exception ex)
             {
-                modal.Show($"Hata: {ex.Message}");
+                modal?.Show($"Hata: {ex.Message}");
             }
         }
-
     }
 }

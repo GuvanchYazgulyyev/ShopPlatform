@@ -5,8 +5,10 @@ using Microsoft.IdentityModel.Tokens;
 using ShopPlatform.Server.Context;
 using ShopPlatform.Server.Services.Infrastuce;
 using ShopPlatform.Shared.ModelsDTO;
+using ShopPlatform.Shared.Results;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace ShopPlatform.Server.Services.Services
@@ -31,18 +33,67 @@ namespace ShopPlatform.Server.Services.Services
         /// <param name="User"></param>
         /// <returns></returns>
         /// <exception cref="NotImplementedException"></exception>
-        public async Task<UserDTO> CreateUser(UserDTO User)
+        public async Task<UserDTO> CreateUser(UserDTO user)
         {
-            var findData = await _context.Users.Where(f => f.Id == User.Id).FirstOrDefaultAsync();
-            if (findData == null)
-                throw new Exception("Daha Önce Kaydınız Yapılmış!!!!");
+            try
+            {
+                // Eğer Id boşsa sabit GUID ata (ya da belirli bir string'e göre oluştur)
+                if (user.Id == Guid.Empty)
+                    user.Id = GuidGenerator.GenerateDeterministicGuid(user.EMailAddress);  // Örneğin E-Mail adresine göre deterministik GUID oluşturuluyor.
 
-            findData = _mapper.Map<Entities.Users>(User);
+                // Bu Id zaten kayıtlı mı kontrol et
+                var findData = await _context.Users.Where(f => f.Id == user.Id).FirstOrDefaultAsync();
+                if (findData != null)
+                    throw new ApiExeption("Daha Önce Kaydınız Yapılmış!!!!");
 
-            await _context.Users.AddAsync(findData);
-            int result = await _context.SaveChangesAsync();
-            return _mapper.Map<UserDTO>(findData);
+                // Kullanıcıyı ekle
+                var entity = _mapper.Map<Entities.Users>(user);
+                await _context.Users.AddAsync(entity);
+                await _context.SaveChangesAsync();
+
+                return _mapper.Map<UserDTO>(entity);
+            }
+            catch (ApiExeption ex)
+            {
+
+                throw;
+            }
+
         }
+
+
+
+        public static class GuidGenerator
+        {
+            // Belli bir namespace kullanıyoruz (örnek olarak bir sabit GUID, değiştirebilirsin)
+            private static readonly Guid _customNamespace = Guid.Parse("bde15a6e-f09b-4d1b-8d08-69e926b236c7");
+
+            // Deterministic bir GUID oluşturuyoruz
+            public static Guid GenerateDeterministicGuid(string name)
+            {
+                using var sha1 = SHA1.Create();
+                var namespaceBytes = _customNamespace.ToByteArray();
+                var nameBytes = Encoding.UTF8.GetBytes(name);
+
+                // Namespace ve name byte'larını birleştiriyoruz
+                var combined = new byte[namespaceBytes.Length + nameBytes.Length];
+                Buffer.BlockCopy(namespaceBytes, 0, combined, 0, namespaceBytes.Length);
+                Buffer.BlockCopy(nameBytes, 0, combined, namespaceBytes.Length, nameBytes.Length);
+
+                var hash = sha1.ComputeHash(combined);
+
+                // UUIDv5 formatına uygun hale getiriyoruz
+                hash[6] = (byte)((hash[6] & 0x0F) | 0x50); // Versiyon 5
+                hash[8] = (byte)((hash[8] & 0x3F) | 0x80); // RFC 4122 Formatı
+
+                var guidBytes = new byte[16];
+                Array.Copy(hash, guidBytes, 16);
+
+                return new Guid(guidBytes); // Bu, tam istediğiniz formatta bir GUID dönecektir.
+            }
+        }
+
+
 
         /// <summary>
         /// Veriyi Id Ye Göre sil.
@@ -105,10 +156,10 @@ namespace ShopPlatform.Server.Services.Services
                 var userControl = await _context.Users.FirstOrDefaultAsync(x => x.EMailAddress == EMail && x.Password == Passwrd);
 
                 if (userControl == null)
-                    throw new Exception("Kullanıcı bulunamadı!");
+                    throw new ApiExeption("Kullanıcı bulunamadı!");
 
                 if (!userControl.IsActive)
-                    throw new Exception("Kullanıcı kayıtlı fakat aktif değil!");
+                    throw new ApiExeption("Kullanıcı kayıtlı fakat aktif değil!");
 
                 UserLoginResponseDTO userLoginResponseDTO = new UserLoginResponseDTO();
 
@@ -136,10 +187,10 @@ namespace ShopPlatform.Server.Services.Services
 
 
             }
-            catch (Exception ex)
+            catch (ApiExeption ex)
             {
                 // Loglanabilir
-                throw new Exception("Login sırasında hata oluştu: " + ex.Message);
+                throw new ApiExeption("Login sırasında hata oluştu: " + ex.Message);
             }
         }
 
@@ -154,7 +205,7 @@ namespace ShopPlatform.Server.Services.Services
         {
             var findData = await _context.Users.Where(f => f.Id == User.Id).FirstOrDefaultAsync();
             if (findData == null)
-                throw new Exception("Kayıt Bulunamadı!!!!");
+                throw new ApiExeption("Kayıt Bulunamadı!!!!");
 
             _mapper.Map(User, findData);
 

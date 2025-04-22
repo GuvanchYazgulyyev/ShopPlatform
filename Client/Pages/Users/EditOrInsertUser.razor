@@ -1,12 +1,9 @@
 ﻿@page "/users/add"
 @page "/users/edit/{UserId:guid}"
 @using ShopPlatform.Client.Utils
-
 @inject HttpClient client
 @inject ModalManager modalManager
 @inject NavigationManager navigation
-
-
 
 <h3 class="text-center mt-4 text-primary">@pageTitle</h3>
 
@@ -33,6 +30,12 @@
                 <InputText class="form-control" @bind-Value="userDTO.EMailAddress" placeholder="ornek@site.com" />
                 <ValidationMessage For="@(() => userDTO.EMailAddress)" />
             </div>
+            
+            <div class="mb-3">
+                <label class="form-label">E-Posta</label>
+                <InputText class="form-control" @bind-Value="userDTO.Password" placeholder="OS58!_?=s" />
+                <ValidationMessage For="@(() => userDTO.Password)" />
+            </div>
 
             <div class="form-check mb-3">
                 <InputCheckbox class="form-check-input" @bind-Value="userDTO.IsActive" />
@@ -46,23 +49,11 @@
     </div>
 </div>
 
-
-
 @code {
     [Parameter] public Guid UserId { get; set; }
 
     private UserDTO userDTO = new();
     private string pageTitle = "Yeni Kullanıcı Ekle";
-
-    protected void goToCreateUser()
-    {
-        navigation.NavigateTo("/users/add");
-    }
-
-    protected void goToUpdatePage()
-    {
-        navigation.NavigateTo("/users/edit/" + UserId);
-    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -70,12 +61,8 @@
         {
             pageTitle = "Kullanıcıyı Güncelle";
 
-            // Eğer kendi servis metodunu kullanmak istiyorsan:
-            // userDTO = await client.GetServiceResponseAsync<UserDTO>("api/user/UserById/" + UserId, true);
-
-            // Eğer standart GetFromJsonAsync yeterliyse:
-            var response = await client.PostAsJsonAsync($"api/user/UserById/{UserId}", UserId);
-            var result = await response.Content.ReadFromJsonAsync<ShopPlatform.Shared.Responses.ServiceResponse<ShopPlatform.Shared.ModelsDTO.UserDTO>>();
+            // ✅ GET request kullanılıyor:
+            var result = await client.GetFromJsonAsync<ShopPlatform.Shared.Responses.ServiceResponse<UserDTO>>($"api/user/{UserId}");
             userDTO = result?.Value ?? new();
         }
     }

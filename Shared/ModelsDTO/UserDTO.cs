@@ -15,5 +15,6 @@ namespace ShopPlatform.Shared.ModelsDTO
         public String EMailAddress { get; set; }
         public bool IsActive { get; set; }
         public String FullName => $"{FirstName} {LastName}";
+        public String Password { get; set; }
     }
 }

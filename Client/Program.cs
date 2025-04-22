@@ -13,4 +13,6 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 builder.Services.AddBlazoredLocalStorage(); // Local Storage için
 builder.Services.AddAuthorizationCore(); // Login  için. Yani Login yapmadan sayfayı görmesin.
 builder.Services.AddScoped<AuthenticationStateProvider, AuthStateProvider>();
+builder.Services.AddScoped<ModalManager>();
+
 await builder.Build().RunAsync();

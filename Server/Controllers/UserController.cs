@@ -1,98 +1,75 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ShopPlatform.Server.Services.Infrastuce;
 using ShopPlatform.Shared.ModelsDTO;
 using ShopPlatform.Shared.Responses;
 
-namespace ShopPlatform.Server.Controllers
+[Route("api/[controller]")]
+[ApiController]
+//[Authorize]
+public class UserController : ControllerBase
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    [Authorize]
-    public class UserController : ControllerBase
+    private readonly IUserService _userService;
+
+    public UserController(IUserService userService)
     {
-        private readonly IUserService _userService;
+        _userService = userService;
+    }
 
-        public UserController(IUserService userService)
+    [HttpPost("Login")]
+    [AllowAnonymous]
+    public async Task<ServiceResponse<UserLoginResponseDTO>> Login(UserLoginRequestDTO userLogin)
+    {
+        return new ServiceResponse<UserLoginResponseDTO>()
         {
-            _userService = userService;
-        }
+            Value = await _userService.Login(userLogin.Email, userLogin.Password)
+        };
+    }
 
-
-        // Login Operation
-        [HttpPost("Login")]
-        [AllowAnonymous]
-        public async Task<ServiceResponse<UserLoginResponseDTO>> Login(UserLoginRequestDTO userLogin)
+    [HttpGet("Users")]
+    [AllowAnonymous]
+    public async Task<ServiceResponse<List<UserDTO>>> GetUser()
+    {
+        return new ServiceResponse<List<UserDTO>>()
         {
-            return new ServiceResponse<UserLoginResponseDTO>()
-            {
-                Value = await _userService.Login(userLogin.Email, userLogin.Password)
-            };
-        }
+            Value = await _userService.GetUser()
+        };
+    }
 
-        /// <summary>
-        ///  Kullancıları Getir.
-        /// </summary>
-        /// <returns></returns>
+    [HttpPost("Create")]
+    public async Task<ServiceResponse<UserDTO>> CreateUser([FromBody] UserDTO user)
+    {
+        return new ServiceResponse<UserDTO>()
+        {
+            Value = await _userService.CreateUser(user)
+        };
+    }
 
-        [HttpGet("Users")]
-        public async Task<ServiceResponse<List<UserDTO>>> GetUser()
+    [HttpPut("Update")]
+    public async Task<ServiceResponse<UserDTO>> UpdateUser([FromBody] UserDTO user)
+    {
+        return new ServiceResponse<UserDTO>()
         {
-            return new ServiceResponse<List<UserDTO>>()
-            {
-                Value = await _userService.GetUser()
-            };
-        }
-        ///
-        // Create User
-        [HttpPost("Create")]
-        public async Task<ServiceResponse<UserDTO>> CreateUser([FromBody] UserDTO user)
-        {
-            return new ServiceResponse<UserDTO>()
-            {
-                Value = await _userService.CreateUser(user)
-            };
-        }
-        ///User Update
-        ///
-        [HttpPut("Update")]
-        public async Task<ServiceResponse<UserDTO>> UpdateUser([FromBody] UserDTO user)
-        {
-            return new ServiceResponse<UserDTO>()
-            {
-                Value = await _userService.UpdateUser(user)
-            };
-        }
+            Value = await _userService.UpdateUser(user)
+        };
+    }
 
-        /// Id Ye Göre Getir 
-        [HttpPost("UserById/{Id}")]
-        public async Task<ServiceResponse<UserDTO>> GetUserById(Guid Id)
+    // ✅ Kullanımı sadeleştirilmiş, sadece GET ile:
+    [HttpGet("{id}")]
+    public async Task<ServiceResponse<UserDTO>> GetUserById(Guid id)
+    {
+        return new ServiceResponse<UserDTO>
         {
-            return new ServiceResponse<UserDTO>()
-            {
-                Value = await _userService.GetUserById(Id)
-            };
-        }
+            Value = await _userService.GetUserById(id)
+        };
+    }
 
-        [HttpGet("{Id}")]
-        public async Task<ServiceResponse<UserDTO>> GetUserById2(Guid Id)
+    [HttpDelete("Delete")]
+    public async Task<ServiceResponse<bool>> DeleteUser([FromBody] Guid Id)
+    {
+        return new ServiceResponse<bool>()
         {
-            return new ServiceResponse<UserDTO>
-            {
-                Value = await _userService.GetUserById(Id)
-            };
-        }
-
-        // Kullanıcı Sil
-        [HttpDelete("Delete")]
-        public async Task<ServiceResponse<bool>> DeleteUser([FromBody] Guid Id)
-        {
-            return new ServiceResponse<bool>()
-            {
-                Value = await _userService.DeleteUserById(Id)
-            };
-        }
-
+            Value = await _userService.DeleteUserById(Id)
+        };
     }
 }

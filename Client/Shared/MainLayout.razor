@@ -19,18 +19,26 @@
 @code {
     [CascadingParameter]
     public Task<AuthenticationState> state { get; set; }
-    [Inject]
-    ILocalStorageService localStorage { get; set; }
-    private String loginStr = "About";
-    [Inject]
-    NavigationManager navigation { get; set; }
+
+    [Inject] ILocalStorageService localStorage { get; set; }
+    [Inject] NavigationManager navigation { get; set; }
+
+    private string loginStr = "About";
 
     protected async override Task OnInitializedAsync()
     {
-        var auth = await state;
-        if (auth.User.Identity.IsAuthenticated)
+        if (state == null)
         {
-            loginStr = await localStorage.GetItemAsStringAsync("email");
+            loginStr = "Not Authenticated";
+            return;
+        }
+
+        var auth = await state;
+
+        if (auth.User.Identity?.IsAuthenticated == true)
+        {
+            var email = await localStorage.GetItemAsStringAsync("email");
+            loginStr = email ?? "Unknown";
         }
         else
         {
