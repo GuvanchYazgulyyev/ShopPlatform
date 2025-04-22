@@ -1,0 +1,95 @@
+﻿@page "/loginPage"
+@using Microsoft.AspNetCore.Components.Authorization
+@using ShopPlatform.Client.Utils
+@using System.Net.Http.Headers
+@using ShopPlatform.Shared.Responses
+
+@layout ShopPlatform.Client.Shared.EmptyLayout
+
+<h3 class="text-center mt-5 mb-4 text-primary">👤 Giriş Yap</h3>
+
+<div class="container d-flex justify-content-center">
+    <div class="card shadow-lg p-4 rounded" style="width: 100%; max-width: 400px;">
+        <EditForm Model="@userLoginRequest" OnValidSubmit="HandleLogin">
+            <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label for="email" class="form-label">E-posta Adresi</label>
+                <InputText id="email" class="form-control" @bind-Value="userLoginRequest.Email" />
+                <ValidationMessage For="@(() => userLoginRequest.Email)" />
+            </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label">Şifre</label>
+                <InputText id="password" type="password" class="form-control" @bind-Value="userLoginRequest.Password" />
+                <ValidationMessage For="@(() => userLoginRequest.Password)" />
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">Giriş Yap</button>
+        </EditForm>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger mt-3" role="alert">
+                @errorMessage
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Inject]
+    HttpClient client { get; set; }
+
+    [Inject]
+    NavigationManager navigation { get; set; }
+
+    private UserLoginRequestDTO userLoginRequest = new();
+    private string? errorMessage;
+
+    [Inject]
+    ILocalStorageService localStorageService { get; set; }
+    [Inject]
+    AuthenticationStateProvider stateProvider { get; set; }
+
+    public async Task HandleLogin()
+    {
+        try
+        {
+            var response = await client.PostAsJsonAsync("api/User/Login", userLoginRequest);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<ShopPlatform.Shared.Responses.ServiceResponse<UserLoginResponseDTO>>();
+                if (result is not null && result.IsSuccess)
+                {
+                    // Local Storage'e Token ve Kullanıcı Bilgileri
+                    await localStorageService.SetItemAsync("token", result.Value.ApiToken);
+                    await localStorageService.SetItemAsync("email", result.Value.User.EMailAddress);
+                    await localStorageService.SetItemAsync("fullName", result.Value.User.FullName);
+
+                    (stateProvider as AuthStateProvider).NotifyUserLogin(result.Value.User.EMailAddress);
+
+                    // Token'ı Header'a Ekle
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", result.Value.ApiToken);
+
+                    // Anasayfaya yönlendir
+                    navigation.NavigateTo("/");
+                }
+                else
+                {
+                    errorMessage = result?.Message ?? "Bilinmeyen bir hata oluştu.";
+                }
+            }
+            else
+            {
+                errorMessage = "Sunucu hatası oluştu.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Hata: {ex.Message}";
+        }
+    }
+
+}
+
